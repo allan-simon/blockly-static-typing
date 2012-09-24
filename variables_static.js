@@ -146,6 +146,113 @@ Blockly.Variables.renameVariable = function(oldName, newName) {
 };
 
 /**
+ * @TODO manage 'by scope' change rather than doing global
+ */
+Blockly.Variables.getTypeStrOf = function(variableName) {
+  console.log(variableName);
+  var blocks;
+
+  blocks = Blockly.mainWorkspace.getAllBlocks();
+  // Iterate through every block and add each variable to the hash.
+  for (var x = 0; x < blocks.length; x++) {
+    if (blocks[x].type == 'variables_create') {
+      if (Blockly.Names.equals(variableName,blocks[x].getVarName())) {
+
+        var varType = blocks[x].getVarType();
+        if (varType == Number) {
+          return 'number';
+        } else if (varType == String) {
+          return 'string';
+        }
+
+      }
+    }
+  }
+  return undefined;
+}
+
+
+Blockly.Variables.variableExists = function(name) {
+  var blocks;
+
+  blocks = Blockly.mainWorkspace.getAllBlocks();
+  // Iterate through every block and add each variable to the hash.
+  console.log(blocks.length);
+  for (var x = 0; x < blocks.length; x++) {
+    if (blocks[x].type == 'variables_create') {
+      var blockVarName = blocks[x].getVarName();
+      if (blockVarName != null) {
+        if (Blockly.Names.equals(name,blockVarName)) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+};
+
+/**
+ * @TODO manage 'by scope' change rather than doing global
+ */
+Blockly.Variables.changeTypeVariable = function(name, newType) {
+  var blocks;
+
+  blocks = Blockly.mainWorkspace.getAllBlocks();
+  // Iterate through every block and add each variable to the hash.
+  for (var x = 0; x < blocks.length; x++) {
+    var func = blocks[x].changeType;
+    if (func) {
+      func.call(blocks[x], name, newType, 'global change');
+    }
+  }
+};
+
+/**
+ * 
+ */
+Blockly.Variables.domToMutation = function(xmlElement) {
+    type = xmlElement.getAttribute('type')
+    this.changeType(this.getVarName(), type);
+};
+
+/**
+ * 
+ */
+Blockly.Variables.mutationToDom = function(workspace) {
+  var container = document.createElement('mutation');
+  if (this.getVarType() == Number) {
+      container.setAttribute('type','number');
+  } else if (this.getVarType() == String) {
+     container.setAttribute('type','string');
+  }
+  return container;
+};
+
+/**
+ * 
+ */
+Blockly.Variables.colourFromType = function(typeStr) {
+  var colour = null;
+  if (typeStr == 'number') {
+    colour=230;
+  } else {
+    colour=160;
+  }
+  return colour;
+};
+
+Blockly.Variables.typeFromStr = function(typeStr) {
+  var type = null;
+  if (typeStr == 'number') {
+    type = Number;
+  } else {
+    type = String;
+  }
+  return type;
+};
+
+
+/**
  * Construct the blocks required by the flyout for the variable category.
  * @param {!Array.<!Blockly.Block>} blocks List of blocks to show.
  * @param {!Array.<number>} gaps List of widths between blocks.
@@ -160,6 +267,17 @@ Blockly.Variables.flyoutCategory = function(blocks, gaps, margin, workspace) {
   // user has created a variable of the same name.
   variableList.unshift(null);
   var defaultVariable = undefined;
+
+  var createBlock = Blockly.Language.variables_create ?
+      new Blockly.Block(workspace, 'variables_create') :
+      null;
+  var createBlockVarName = createBlock.getVarName();
+  var varType = Blockly.Variables.getTypeStrOf(createBlockVarName);
+  //createBlock && createBlock.changeType(varName, varType);
+
+  createBlock && createBlock.initSvg();
+  createBlock && blocks.push(createBlock);
+  gaps.push(margin * 3);
   for (var i = 0; i < variableList.length; i++) {
     if (variableList[i] === defaultVariable) {
       continue;
@@ -171,10 +289,18 @@ Blockly.Variables.flyoutCategory = function(blocks, gaps, margin, workspace) {
         new Blockly.Block(workspace, 'variables_set') : null;
     setBlock && setBlock.initSvg();
     if (variableList[i] === null) {
-      defaultVariable = (getBlock || setBlock).getVars()[0];
+      defaultVariable = createBlockVarName;
+      continue;
     } else {
-      getBlock && getBlock.setTitleText(variableList[i], 'VAR');
-      setBlock && setBlock.setTitleText(variableList[i], 'VAR');
+      var varName = variableList[i];
+      var varType = Blockly.Variables.getTypeStrOf(varName);
+      console.log ('var ' + varName + ' of type' + varType);
+      
+      getBlock && getBlock.setTitleText(varName, 'VAR');
+      setBlock && setBlock.setTitleText(varName, 'VAR');
+
+      getBlock && getBlock.changeType(varName, varType);
+      setBlock && setBlock.changeType(varName, varType);
     }
     setBlock && blocks.push(setBlock);
     getBlock && blocks.push(getBlock);
